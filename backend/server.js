@@ -6,9 +6,9 @@ require('dotenv').config();
 
 const app = express();
 
-// Updated CORS to allow all origins for debugging
+// Allow all origins to prevent CORS issues between Vercel and Render
 app.use(cors({
-  origin: '*',
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -16,13 +16,46 @@ app.use(cors({
 app.use(express.json());
 
 // Database Connection
+let isDbConnected = false;
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(() => {
+    console.log('MongoDB connected');
+    isDbConnected = true;
+  })
   .catch(err => console.error('MongoDB connection error:', err));
 
-// --- ROOT ROUTE (Health Check) ---
+// --- MIDDLEWARE ---
+// Fail fast if DB isn't ready
+app.use((req, res, next) => {
+  // Skip check for health route
+  if (req.path === '/' || req.path === '/api/health') return next();
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ error: 'Database not ready', isOffline: true });
+  }
+  next();
+});
+
+// --- SYSTEM ROUTES ---
+
+// Root Route: Easy way to check if backend is live in browser
 app.get('/', (req, res) => {
-  res.send('✅ CollabFlow API is running successfully!');
+  res.send(`
+    <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+      <h1 style="color: #4F46E5;">CollabFlow API is Running</h1>
+      <p>Status: <strong>${isDbConnected ? 'Online & Connected to DB' : 'Waiting for DB...'}</strong></p>
+      <p>Endpoint: <code>/api/health</code></p>
+    </div>
+  `);
+});
+
+// Health Check: Lightweight endpoint for frontend to ping
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date(), 
+    dbState: mongoose.connection.readyState 
+  });
 });
 
 // --- API ROUTES ---
@@ -33,8 +66,6 @@ app.post('/api/auth/login', async (req, res) => {
     const { email } = req.body;
     console.log(`[AUTH] Login attempt for: ${email}`);
     
-    // In a real app, we would verify a password here.
-    // For this demo, we verify the user exists in the DB.
     const user = await User.findOne({ email });
     
     if (!user) {
@@ -134,7 +165,6 @@ app.post('/api/tasks', async (req, res) => {
 
 app.put('/api/tasks/:id', async (req, res) => {
   try {
-    // Check if this is an assignment operation for logging
     if (req.body.assignedTo) {
       const user = await User.findById(req.body.assignedTo);
       console.log(`[TASK] Assigning task ${req.params.id} to user: ${user ? user.name : req.body.assignedTo}`);
