@@ -32,14 +32,31 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Initialize from LocalStorage to persist session across refreshes
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const saved = localStorage.getItem('collabflow_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  
+  // Initialize Active Project from LocalStorage
+  const [activeProject, setActiveProjectState] = useState<Project | null>(() => {
+    const saved = localStorage.getItem('collabflow_active_project');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+
+  // Wrapper to save active project to local storage
+  const setActiveProject = (project: Project) => {
+    setActiveProjectState(project);
+    localStorage.setItem('collabflow_active_project', JSON.stringify(project));
+  };
 
   // Fetch initial data
   const fetchData = async () => {
@@ -67,6 +84,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setMessages(messagesData);
       setIsOffline(false);
 
+      // If no active project is selected (or persisted), select the first one
       if (projectsData.length > 0 && !activeProject) {
         setActiveProject(projectsData[0]);
       }
@@ -98,6 +116,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const user = users.find((u: User) => u.email.toLowerCase() === email.toLowerCase());
       if (user) {
         setCurrentUser(user);
+        localStorage.setItem('collabflow_user', JSON.stringify(user));
       } else {
           alert("User not found in demo data.");
       }
@@ -115,6 +134,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (res.ok) {
         const user = await res.json();
         setCurrentUser(user);
+        localStorage.setItem('collabflow_user', JSON.stringify(user));
         
         // Refresh data to ensure we have latest tasks/messages
         fetchData();
@@ -138,6 +158,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       setUsers(prev => [...prev, newUser]);
       setCurrentUser(newUser);
+      localStorage.setItem('collabflow_user', JSON.stringify(newUser));
       return;
     }
 
@@ -151,12 +172,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const newUser = await res.json();
       setUsers(prev => [...prev, newUser]);
       setCurrentUser(newUser);
+      localStorage.setItem('collabflow_user', JSON.stringify(newUser));
     } else {
       alert("Registration failed");
     }
   };
 
-  const logout = () => setCurrentUser(null);
+  const logout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('collabflow_user');
+    localStorage.removeItem('collabflow_active_project');
+  };
 
   const hasPermission = (action: 'create_project' | 'delete_project' | 'assign_task'): boolean => {
     if (!currentUser) return false;
