@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Project, Task, Message, UserRole, TaskStatus } from '../types';
-import { MOCK_USERS, MOCK_PROJECTS, MOCK_TASKS, MOCK_MESSAGES } from '../constants';
+import { User, Project, Task, Message, UserRole, TaskStatus, Team } from '../types';
+import { MOCK_USERS, MOCK_PROJECTS, MOCK_TASKS, MOCK_MESSAGES, MOCK_TEAMS } from '../constants';
 
 interface DataContextType {
   currentUser: User | null;
@@ -8,6 +8,7 @@ interface DataContextType {
   projects: Project[];
   tasks: Task[];
   messages: Message[];
+  teams: Team[];
   activeProject: Project | null;
   login: (email: string) => Promise<void>;
   register: (name: string, email: string, role: UserRole) => Promise<void>;
@@ -80,6 +81,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   
   const [activeProject, setActiveProjectState] = useState<Project | null>(() => {
     const saved = localStorage.getItem('collabflow_active_project');
@@ -133,11 +135,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // 2. Fetch Real Data
     try {
-      const [usersRes, projectsRes, tasksRes, messagesRes] = await Promise.all([
+      const [usersRes, projectsRes, tasksRes, messagesRes, teamsRes] = await Promise.all([
         fetch(`${API_URL}/users`),
         fetch(`${API_URL}/projects`),
         fetch(`${API_URL}/tasks`),
-        fetch(`${API_URL}/messages`)
+        fetch(`${API_URL}/messages`),
+        fetch(`${API_URL}/teams`)
       ]);
 
       if (!usersRes.ok) throw new Error("API responded with error");
@@ -146,11 +149,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const projectsData = await projectsRes.json();
       const tasksData = await tasksRes.json();
       const messagesData = await messagesRes.json();
+      const teamsData = teamsRes.ok ? await teamsRes.json() : [];
 
       setUsers(usersData);
       setProjects(projectsData);
       setTasks(tasksData);
       setMessages(messagesData);
+      setTeams(teamsData);
       setIsOffline(false);
 
       if (projectsData.length > 0 && !activeProject) {
@@ -171,6 +176,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProjects(MOCK_PROJECTS);
     setTasks(MOCK_TASKS);
     setMessages(MOCK_MESSAGES);
+    setTeams(MOCK_TEAMS);
     if (MOCK_PROJECTS.length > 0 && !activeProject) {
       setActiveProject(MOCK_PROJECTS[0]);
     }
@@ -333,14 +339,23 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    const res = await fetch(`${API_URL}/projects`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(projectData)
-    });
-    const newProject = await res.json();
-    setProjects(prev => [...prev, newProject]);
-    setActiveProject(newProject);
+    try {
+      const res = await fetch(`${API_URL}/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(projectData)
+      });
+
+      if (res.ok) {
+        const newProject = await res.json();
+        setProjects(prev => [...prev, newProject]);
+        setActiveProject(newProject);
+      } else {
+        console.error("Failed to create project");
+      }
+    } catch (e) {
+      console.error("Error creating project", e);
+    }
   };
 
   const deleteProject = async (projectId: string) => {
@@ -391,7 +406,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{
-      currentUser, users, projects, tasks, messages, activeProject,
+      currentUser, users, projects, tasks, messages, activeProject, teams,
       login, register, logout, setActiveProject, addTask, updateTask, deleteTask, 
       sendMessage, addProject, deleteProject, executeAIAction, hasPermission, 
       isLoading, isOffline, connectionError, apiUrl: API_URL
