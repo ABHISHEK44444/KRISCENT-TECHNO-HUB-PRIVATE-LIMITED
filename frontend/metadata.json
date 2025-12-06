@@ -1,0 +1,5 @@
+{
+  "name": "CollabFlow - AI Team Manager",
+  "description": "A real-time collaboration platform with Kanban boards, team chat, and an AI project assistant powered by Gemini.",
+  "requestFramePermissions": []
+}
