@@ -8,14 +8,27 @@ import { Login } from './components/Login';
 
 const AppContent: React.FC = () => {
   const { currentUser } = useData();
-  const [activeView, setActiveView] = useState<'dashboard' | 'chat' | 'settings'>('dashboard');
+  
+  // Initialize view from local storage or default to dashboard
+  const [activeView, setActiveView] = useState<'dashboard' | 'chat' | 'settings'>(() => {
+    const saved = localStorage.getItem('collabflow_view');
+    if (saved === 'dashboard' || saved === 'chat' || saved === 'settings') {
+      return saved;
+    }
+    return 'dashboard';
+  });
+
+  const handleViewChange = (view: 'dashboard' | 'chat' | 'settings') => {
+    setActiveView(view);
+    localStorage.setItem('collabflow_view', view);
+  };
 
   if (!currentUser) {
     return <Login />;
   }
 
   return (
-    <Layout activeView={activeView} onViewChange={setActiveView}>
+    <Layout activeView={activeView} onViewChange={handleViewChange}>
       {activeView === 'dashboard' && <KanbanBoard />}
       {activeView === 'chat' && <ChatPanel />}
       {activeView === 'settings' && (
