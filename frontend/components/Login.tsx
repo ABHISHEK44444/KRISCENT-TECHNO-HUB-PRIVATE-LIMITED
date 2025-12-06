@@ -194,13 +194,25 @@ export const Login: React.FC = () => {
       </div>
 
       {/* DEBUG BOX */}
-      <div className="mt-8 p-4 bg-slate-900 text-slate-300 rounded-lg text-xs font-mono max-w-md w-full opacity-80">
-        <p className="mb-1 font-bold text-slate-100">Backend Configuration:</p>
-        <p>Target URL: <span className="text-cyan-400">{apiUrl}</span></p>
-        <p>Status: {isOffline ? 'Disconnected' : 'Connected'}</p>
-        <p className="mt-2 italic text-[10px] text-slate-500">
-            Note: If deployment just finished, wait 60s for Render to wake up.
-        </p>
+      <div className="mt-8 p-4 bg-slate-900 text-slate-300 rounded-lg text-xs font-mono max-w-md w-full opacity-90 shadow-2xl border border-slate-700">
+        <p className="mb-2 font-bold text-white border-b border-slate-700 pb-1">Backend Connection Status</p>
+        <div className="space-y-1">
+           <p>Target URL: <span className="text-cyan-400 break-all">{apiUrl}</span></p>
+           <p>Status: <span className={isOffline ? 'text-red-400' : 'text-emerald-400'}>{isOffline ? 'Disconnected' : 'Connected'}</span></p>
+        </div>
+        
+        {apiUrl.includes('localhost') && (
+            <div className="mt-3 text-amber-400 bg-amber-950/30 p-2 rounded border border-amber-900/50">
+                <p className="font-bold mb-1">⚠️ Connected to Localhost</p>
+                <p className="mb-2">To connect Vercel to Render:</p>
+                <ol className="list-decimal ml-4 space-y-1 text-slate-300">
+                    <li>Go to Vercel Project Settings</li>
+                    <li>Add Env Var: <span className="text-white bg-slate-800 px-1 rounded">VITE_API_URL</span></li>
+                    <li>Value: Your Render URL</li>
+                    <li className="font-bold text-white">Go to Deployments &rarr; Redeploy</li>
+                </ol>
+            </div>
+        )}
       </div>
     </div>
   );
