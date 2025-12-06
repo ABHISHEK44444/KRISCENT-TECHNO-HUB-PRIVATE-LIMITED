@@ -33,26 +33,18 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const getApiUrl = () => {
   let url = '';
 
-  // 1. Try Vite Standard (using requested method)
-  try {
-    const meta = import.meta as any;
-    const env = (meta.env || {}) as any;
-    url = env.VITE_API_URL;
-  } catch (e) {
-    // Ignore if import.meta is not available
+  // 1. PRIORITY: Direct Vite Access 
+  // We access properties directly so the bundler can statically replace the string.
+  // @ts-ignore
+  if (import.meta.env && import.meta.env.VITE_API_URL) {
+    // @ts-ignore
+    url = import.meta.env.VITE_API_URL;
   }
 
-  // 2. Try Create React App / Webpack / Next.js Standard (process.env)
-  if (!url) {
-    try {
-        // @ts-ignore
-        if (typeof process !== 'undefined' && process.env) {
-            // @ts-ignore
-            url = process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL;
-        }
-    } catch (e) {
-        // Ignore error
-    }
+  // 2. FALLBACK: Process Env (Standard Node/CRA/Vercel System Envs)
+  if (!url && typeof process !== 'undefined' && process.env) {
+    // @ts-ignore
+    url = process.env.VITE_API_URL || process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL;
   }
 
   // 3. Fallback to Localhost if no environment variable is found
@@ -106,7 +98,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- HEALTH CHECK / WAKE UP LOGIC ---
   const waitForBackend = async () => {
     console.log(`[Connection] Attempting to connect to: ${API_URL}`);
-    const maxRetries = 15; // Increased retries for Render cold start
+    const maxRetries = 5; // Reduced retries to avoid long waits if config is wrong
     
     for (let i = 0; i < maxRetries; i++) {
       try {
@@ -131,7 +123,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const isOnline = await waitForBackend();
 
     if (!isOnline) {
-      console.warn("Backend unreachable after retries. Switching to Offline Mode.");
+      console.warn("Backend unreachable. Switching to Offline Mode.");
       setIsOffline(true);
       setConnectionError("Could not connect to server. Using demo data.");
       loadMockData();
