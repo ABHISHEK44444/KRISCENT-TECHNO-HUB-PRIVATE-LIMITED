@@ -27,7 +27,9 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const API_URL = 'http://localhost:5000/api';
+// Use environment variable for production, fallback to localhost for development
+// Note: In Vercel, you must set REACT_APP_API_URL to your Render backend URL + /api
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
