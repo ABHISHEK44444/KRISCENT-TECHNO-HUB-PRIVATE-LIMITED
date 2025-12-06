@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Mail, Lock, LogIn, UserPlus, User as UserIcon, AlertCircle, Briefcase } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, User as UserIcon, AlertCircle, Briefcase, Wifi, WifiOff } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const Login: React.FC = () => {
-  const { users, login, register } = useData();
+  const { users, login, register, isOffline, connectionError, apiUrl } = useData();
   const [isRegistering, setIsRegistering] = useState(false);
   
   // Form State
@@ -23,24 +23,28 @@ export const Login: React.FC = () => {
         setError('All fields are required.');
         return;
       }
-      // Check if email exists
       if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
         setError('User with this email already exists.');
         return;
       }
       register(name, email, role);
     } else {
-      // Login Logic
       const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
       if (user && password) {
         login(user.email);
       } else {
-        setError('Invalid email or password. Please try a demo account.');
+        // Only allow login if we are ONLINE and can verify with backend, OR if we found them in offline mock data
+        if (isOffline && user) {
+             login(user.email);
+        } else if (!isOffline) {
+            login(email); // Try backend
+        } else {
+            setError('Invalid credentials.');
+        }
       }
     }
   };
 
-  // Helper to pre-fill credentials for demo
   const prefill = (demoEmail: string) => {
     setEmail(demoEmail);
     setPassword('password');
@@ -48,7 +52,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 p-8 shadow-xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-cyan-600 bg-clip-text text-transparent mb-2">
@@ -57,6 +61,15 @@ export const Login: React.FC = () => {
           <p className="text-gray-500">
             {isRegistering ? 'Create a new account' : 'Sign in to your account'}
           </p>
+        </div>
+
+        {/* CONNECTION STATUS BADGE */}
+        <div className={`mb-6 p-3 rounded-lg flex items-center gap-2 text-sm ${isOffline ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+            {isOffline ? <WifiOff size={16} /> : <Wifi size={16} />}
+            <div className="flex-1">
+                <span className="font-semibold">{isOffline ? 'Offline / Demo Mode' : 'Connected to Server'}</span>
+                {connectionError && <p className="text-xs opacity-80 mt-1">{connectionError}</p>}
+            </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -178,6 +191,16 @@ export const Login: React.FC = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* DEBUG BOX */}
+      <div className="mt-8 p-4 bg-slate-900 text-slate-300 rounded-lg text-xs font-mono max-w-md w-full opacity-80">
+        <p className="mb-1 font-bold text-slate-100">Backend Configuration:</p>
+        <p>Target URL: <span className="text-cyan-400">{apiUrl}</span></p>
+        <p>Status: {isOffline ? 'Disconnected' : 'Connected'}</p>
+        <p className="mt-2 italic text-[10px] text-slate-500">
+            Note: If deployment just finished, wait 60s for Render to wake up.
+        </p>
       </div>
     </div>
   );
