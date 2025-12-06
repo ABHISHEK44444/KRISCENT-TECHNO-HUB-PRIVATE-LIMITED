@@ -73,10 +73,10 @@ export const AIAssistant: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Moved up to bottom-24 to avoid covering Chat Input */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-500/30 transition-all z-40 ${isOpen ? 'scale-0' : 'scale-100'}`}
+        className={`fixed bottom-24 right-6 sm:bottom-10 sm:right-10 p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg shadow-indigo-500/30 transition-all z-40 ${isOpen ? 'scale-0' : 'scale-100'}`}
       >
         <Sparkles size={24} />
       </button>
@@ -85,8 +85,8 @@ export const AIAssistant: React.FC = () => {
       <div 
         className={`fixed z-50 bg-white sm:border sm:border-gray-200 sm:rounded-2xl shadow-2xl flex flex-col transition-all duration-300 origin-bottom-right
           ${isOpen 
-            ? 'inset-0 sm:inset-auto sm:bottom-6 sm:right-6 scale-100 opacity-100' 
-            : 'bottom-6 right-6 scale-90 opacity-0 pointer-events-none'
+            ? 'inset-0 sm:inset-auto sm:bottom-24 sm:right-10 scale-100 opacity-100' 
+            : 'bottom-24 right-6 scale-90 opacity-0 pointer-events-none'
           }
           sm:w-96
         `}
