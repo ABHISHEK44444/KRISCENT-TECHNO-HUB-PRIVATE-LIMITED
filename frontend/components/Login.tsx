@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Mail, Lock, LogIn, UserPlus, User as UserIcon, AlertCircle, Briefcase, Wifi, WifiOff } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, User as UserIcon, AlertCircle, Briefcase } from 'lucide-react';
 import { UserRole } from '../types';
 
 export const Login: React.FC = () => {
-  const { users, login, register, isOffline, connectionError, apiUrl } = useData();
+  const { users, login, register, isOffline } = useData();
   const [isRegistering, setIsRegistering] = useState(false);
   
   // Form State
@@ -61,15 +61,6 @@ export const Login: React.FC = () => {
           <p className="text-gray-500">
             {isRegistering ? 'Create a new account' : 'Sign in to your account'}
           </p>
-        </div>
-
-        {/* CONNECTION STATUS BADGE */}
-        <div className={`mb-6 p-3 rounded-lg flex items-center gap-2 text-sm ${isOffline ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-            {isOffline ? <WifiOff size={16} /> : <Wifi size={16} />}
-            <div className="flex-1">
-                <span className="font-semibold">{isOffline ? 'Offline / Demo Mode' : 'Connected to Server'}</span>
-                {connectionError && <p className="text-xs opacity-80 mt-1">{connectionError}</p>}
-            </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -190,28 +181,6 @@ export const Login: React.FC = () => {
               ))}
             </div>
           </div>
-        )}
-      </div>
-
-      {/* DEBUG BOX */}
-      <div className="mt-8 p-4 bg-slate-900 text-slate-300 rounded-lg text-xs font-mono max-w-md w-full opacity-90 shadow-2xl border border-slate-700">
-        <p className="mb-2 font-bold text-white border-b border-slate-700 pb-1">Backend Connection Status</p>
-        <div className="space-y-1">
-           <p>Target URL: <span className="text-cyan-400 break-all">{apiUrl}</span></p>
-           <p>Status: <span className={isOffline ? 'text-red-400' : 'text-emerald-400'}>{isOffline ? 'Disconnected' : 'Connected'}</span></p>
-        </div>
-        
-        {apiUrl.includes('localhost') && (
-            <div className="mt-3 text-amber-400 bg-amber-950/30 p-2 rounded border border-amber-900/50">
-                <p className="font-bold mb-1">⚠️ Connected to Localhost</p>
-                <p className="mb-2">To connect Vercel to Render:</p>
-                <ol className="list-decimal ml-4 space-y-1 text-slate-300">
-                    <li>Go to Vercel Project Settings</li>
-                    <li>Add Env Var: <span className="text-white bg-slate-800 px-1 rounded">VITE_API_URL</span></li>
-                    <li>Value: Your Render URL</li>
-                    <li className="font-bold text-white">Go to Deployments &rarr; Redeploy</li>
-                </ol>
-            </div>
         )}
       </div>
     </div>
