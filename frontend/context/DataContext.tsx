@@ -29,19 +29,50 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// --- SMART URL CONFIGURATION ---
+// --- UNIVERSAL ENVIRONMENT VARIABLE LOADER ---
 const getApiUrl = () => {
-  // 1. Get Variable
-  let url = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  let url = '';
+
+  // 1. Try Vite Standard (using requested method)
+  try {
+    const meta = import.meta as any;
+    const env = (meta.env || {}) as any;
+    url = env.VITE_API_URL;
+  } catch (e) {
+    // Ignore if import.meta is not available
+  }
+
+  // 2. Try Create React App / Webpack / Next.js Standard (process.env)
+  if (!url) {
+    try {
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env) {
+            // @ts-ignore
+            url = process.env.REACT_APP_API_URL || process.env.NEXT_PUBLIC_API_URL;
+        }
+    } catch (e) {
+        // Ignore error
+    }
+  }
+
+  // 3. Fallback to Localhost if no environment variable is found
+  if (!url) {
+    url = 'http://localhost:5000/api';
+  }
   
-  // 2. Cleanup: Remove trailing slash if user added it (e.g., ".../api/")
+  // 4. Cleanup: Remove trailing slash
   url = url.replace(/\/$/, '');
 
-  // 3. Smart Correction: If user pasted "https://myapp.onrender.com", append "/api"
+  // 5. Smart Correction: If user pasted "https://myapp.onrender.com", append "/api"
   if (!url.endsWith('/api')) {
     url = `${url}/api`;
   }
   
+  // 6. Force HTTPS in production (if not localhost)
+  if (!url.includes('localhost') && url.startsWith('http://')) {
+    url = url.replace('http://', 'https://');
+  }
+
   return url;
 };
 
@@ -75,7 +106,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // --- HEALTH CHECK / WAKE UP LOGIC ---
   const waitForBackend = async () => {
     console.log(`[Connection] Attempting to connect to: ${API_URL}`);
-    const maxRetries = 10; // Try for ~20-30 seconds
+    const maxRetries = 15; // Increased retries for Render cold start
     
     for (let i = 0; i < maxRetries; i++) {
       try {
