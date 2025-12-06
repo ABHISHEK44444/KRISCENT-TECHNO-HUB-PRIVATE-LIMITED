@@ -3,7 +3,6 @@ import { useData } from '../context/DataContext';
 import { 
   LayoutDashboard, 
   MessageSquare, 
-  Settings, 
   LogOut, 
   Plus, 
   Menu,
@@ -19,7 +18,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChange }) => {
-  const { currentUser, logout, projects, activeProject, setActiveProject, hasPermission, addProject, deleteProject } = useData();
+  const { currentUser, logout, projects, activeProject, setActiveProject, hasPermission, addProject, deleteProject, teams } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Project Modal State
@@ -30,10 +29,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (newProjectName.trim()) {
+      // Use the first team available or fallback to 't1' if offline/mock
+      const teamId = teams.length > 0 ? teams[0].id : 't1';
+      
       addProject({
         name: newProjectName,
         description: newProjectDesc,
-        teamId: 't1' // Defaulting to the main team for this demo
+        teamId: teamId
       });
       setIsProjectModalOpen(false);
       setNewProjectName('');
@@ -49,12 +51,25 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
     }
   };
 
+  const handleNavClick = (view: 'dashboard' | 'chat' | 'settings') => {
+    onViewChange(view);
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900 overflow-hidden font-sans">
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 shadow-xl md:shadow-none
       `}>
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -72,14 +87,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
             <div className="mb-6">
               <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Menu</p>
               <button
-                onClick={() => onViewChange('dashboard')}
+                onClick={() => handleNavClick('dashboard')}
                 className={`flex items-center w-full px-3 py-2 rounded-lg transition-colors ${activeView === 'dashboard' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
               >
                 <LayoutDashboard size={18} className="mr-3" />
                 Board
               </button>
               <button
-                onClick={() => onViewChange('chat')}
+                onClick={() => handleNavClick('chat')}
                 className={`flex items-center w-full px-3 py-2 rounded-lg transition-colors ${activeView === 'chat' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}
               >
                 <MessageSquare size={18} className="mr-3" />
@@ -104,7 +119,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
                 {projects.map(project => (
                   <div key={project.id} className="group relative flex items-center">
                     <button
-                      onClick={() => setActiveProject(project)}
+                      onClick={() => {
+                        setActiveProject(project);
+                        setMobileMenuOpen(false);
+                      }}
                       className={`flex-1 flex items-center w-full px-3 py-2 rounded-lg text-sm transition-colors ${activeProject?.id === project.id ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                     >
                       <span className={`w-2 h-2 rounded-full mr-3 ${activeProject?.id === project.id ? 'bg-indigo-500' : 'bg-gray-400'}`}></span>
@@ -145,9 +163,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onViewChan
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64 flex flex-col h-full bg-gray-50 relative">
-        <header className="md:hidden h-16 border-b border-gray-200 flex items-center justify-between px-4 bg-white">
+        <header className="md:hidden h-16 border-b border-gray-200 flex items-center justify-between px-4 bg-white shrink-0 z-20">
           <span className="font-bold text-indigo-600">CollabFlow</span>
-          <button onClick={() => setMobileMenuOpen(true)} className="text-gray-500">
+          <button onClick={() => setMobileMenuOpen(true)} className="text-gray-500 p-2 hover:bg-gray-100 rounded-lg">
             <Menu size={24} />
           </button>
         </header>
