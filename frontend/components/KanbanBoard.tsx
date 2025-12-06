@@ -167,7 +167,8 @@ export const KanbanBoard: React.FC = () => {
         {Object.values(TaskStatus).map((status) => (
           <div 
             key={status}
-            className={`snap-center flex-shrink-0 w-[85vw] sm:w-80 flex flex-col rounded-xl border ${StatusColors[status]} transition-colors h-full`}
+            // Mobile: w-[85vw] | Small Desktop: w-80 | Large Desktop: flex-1 (fill space)
+            className={`snap-center flex-shrink-0 w-[85vw] sm:w-80 lg:w-auto lg:flex-1 flex flex-col rounded-xl border ${StatusColors[status]} transition-colors h-full`}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
