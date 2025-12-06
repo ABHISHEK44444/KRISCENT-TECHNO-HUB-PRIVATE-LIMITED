@@ -27,9 +27,25 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Use environment variable for production, fallback to localhost for development
-// Note: In Vercel, you must set REACT_APP_API_URL to your Render backend URL + /api
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Helper to sanitize API URL
+const getApiUrl = () => {
+  // Try to get env var
+  let url = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  
+  // Remove trailing slash if present to avoid double slashes
+  if (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+  
+  // Ensure it ends with /api if the user forgot it (unless it's localhost default)
+  if (!url.includes('localhost') && !url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  
+  return url;
+};
+
+const API_URL = getApiUrl();
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Initialize from LocalStorage to persist session across refreshes
@@ -60,10 +76,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Fetch initial data
   const fetchData = async () => {
+    console.log(`[CollabFlow] Connecting to Backend at: ${API_URL}`);
+    
     try {
       setIsLoading(true);
       // Try a simple health check first or just attempt fetch
-      // If this throws, we go to catch and load mocks
       const [usersRes, projectsRes, tasksRes, messagesRes] = await Promise.all([
         fetch(`${API_URL}/users`),
         fetch(`${API_URL}/projects`),
@@ -71,7 +88,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fetch(`${API_URL}/messages`)
       ]);
 
-      if (!usersRes.ok) throw new Error("Backend not reachable");
+      if (!usersRes.ok) throw new Error(`Backend error: ${usersRes.statusText}`);
 
       const usersData = await usersRes.json();
       const projectsData = await projectsRes.json();
@@ -83,13 +100,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setTasks(tasksData);
       setMessages(messagesData);
       setIsOffline(false);
+      console.log("[CollabFlow] Connected Online");
 
       // If no active project is selected (or persisted), select the first one
       if (projectsData.length > 0 && !activeProject) {
         setActiveProject(projectsData[0]);
       }
     } catch (error) {
-      console.warn("Backend unavailable, using mock data:", error);
+      console.warn(`[CollabFlow] Backend unavailable (${API_URL}). Switching to Offline Mode.`, error);
       setIsOffline(true);
       
       // Fallback to Mocks
