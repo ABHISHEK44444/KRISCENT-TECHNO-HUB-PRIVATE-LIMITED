@@ -42,7 +42,7 @@ export const ChatPanel: React.FC = () => {
 
           return (
             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[80%] ${isMe ? 'flex-row-reverse' : 'flex-row'} gap-3`}>
+              <div className={`flex max-w-[85%] sm:max-w-[80%] ${isMe ? 'flex-row-reverse' : 'flex-row'} gap-3`}>
                 {showHeader && !isMe && (
                    <img src={sender?.avatar} className="w-8 h-8 rounded-full self-start mt-1" alt={sender?.name}/>
                 )}
@@ -72,17 +72,17 @@ export const ChatPanel: React.FC = () => {
         })}
       </div>
 
-      <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-200 flex gap-2">
+      <form onSubmit={handleSend} className="p-4 bg-white border-t border-gray-200 flex gap-2 pb-safe sm:pb-4">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent placeholder-gray-400 focus:bg-white transition-colors"
+          className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 sm:py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent placeholder-gray-400 focus:bg-white transition-colors"
         />
         <button 
           type="submit"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 sm:p-2 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           disabled={!inputValue.trim()}
         >
           <Send size={20} />
