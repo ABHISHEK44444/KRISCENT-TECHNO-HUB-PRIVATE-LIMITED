@@ -23,22 +23,22 @@ interface DataContextType {
   hasPermission: (action: 'create_project' | 'delete_project' | 'assign_task') => boolean;
   isLoading: boolean;
   isOffline: boolean;
+  connectionError: string | null;
+  apiUrl: string;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-// Helper to sanitize API URL
+// --- SMART URL CONFIGURATION ---
 const getApiUrl = () => {
-  // Try to get env var
+  // 1. Get Variable
   let url = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
   
-  // Remove trailing slash if present to avoid double slashes
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
-  }
-  
-  // Ensure it ends with /api if the user forgot it (unless it's localhost default)
-  if (!url.includes('localhost') && !url.endsWith('/api')) {
+  // 2. Cleanup: Remove trailing slash if user added it (e.g., ".../api/")
+  url = url.replace(/\/$/, '');
+
+  // 3. Smart Correction: If user pasted "https://myapp.onrender.com", append "/api"
+  if (!url.endsWith('/api')) {
     url = `${url}/api`;
   }
   
@@ -48,7 +48,6 @@ const getApiUrl = () => {
 const API_URL = getApiUrl();
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initialize from LocalStorage to persist session across refreshes
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('collabflow_user');
     return saved ? JSON.parse(saved) : null;
@@ -59,7 +58,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [tasks, setTasks] = useState<Task[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   
-  // Initialize Active Project from LocalStorage
   const [activeProject, setActiveProjectState] = useState<Project | null>(() => {
     const saved = localStorage.getItem('collabflow_active_project');
     return saved ? JSON.parse(saved) : null;
@@ -67,20 +65,51 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  // Wrapper to save active project to local storage
   const setActiveProject = (project: Project) => {
     setActiveProjectState(project);
     localStorage.setItem('collabflow_active_project', JSON.stringify(project));
   };
 
-  // Fetch initial data
-  const fetchData = async () => {
-    console.log(`[CollabFlow] Connecting to Backend at: ${API_URL}`);
+  // --- HEALTH CHECK / WAKE UP LOGIC ---
+  const waitForBackend = async () => {
+    console.log(`[Connection] Attempting to connect to: ${API_URL}`);
+    const maxRetries = 10; // Try for ~20-30 seconds
     
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        const res = await fetch(`${API_URL}/health`);
+        if (res.ok) {
+          console.log(`[Connection] Backend is Online! (Attempt ${i + 1})`);
+          return true;
+        }
+      } catch (e) {
+        console.log(`[Connection] Backend not ready yet... (Attempt ${i + 1})`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s
+      }
+    }
+    return false;
+  };
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    setConnectionError(null);
+
+    // 1. Try to wake up the server first
+    const isOnline = await waitForBackend();
+
+    if (!isOnline) {
+      console.warn("Backend unreachable after retries. Switching to Offline Mode.");
+      setIsOffline(true);
+      setConnectionError("Could not connect to server. Using demo data.");
+      loadMockData();
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Fetch Real Data
     try {
-      setIsLoading(true);
-      // Try a simple health check first or just attempt fetch
       const [usersRes, projectsRes, tasksRes, messagesRes] = await Promise.all([
         fetch(`${API_URL}/users`),
         fetch(`${API_URL}/projects`),
@@ -88,7 +117,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         fetch(`${API_URL}/messages`)
       ]);
 
-      if (!usersRes.ok) throw new Error(`Backend error: ${usersRes.statusText}`);
+      if (!usersRes.ok) throw new Error("API responded with error");
 
       const usersData = await usersRes.json();
       const projectsData = await projectsRes.json();
@@ -100,27 +129,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setTasks(tasksData);
       setMessages(messagesData);
       setIsOffline(false);
-      console.log("[CollabFlow] Connected Online");
 
-      // If no active project is selected (or persisted), select the first one
       if (projectsData.length > 0 && !activeProject) {
         setActiveProject(projectsData[0]);
       }
     } catch (error) {
-      console.warn(`[CollabFlow] Backend unavailable (${API_URL}). Switching to Offline Mode.`, error);
+      console.error("Error fetching data:", error);
       setIsOffline(true);
-      
-      // Fallback to Mocks
-      setUsers(MOCK_USERS);
-      setProjects(MOCK_PROJECTS);
-      setTasks(MOCK_TASKS);
-      setMessages(MOCK_MESSAGES);
-      
-      if (MOCK_PROJECTS.length > 0 && !activeProject) {
-        setActiveProject(MOCK_PROJECTS[0]);
-      }
+      setConnectionError("Connected to server, but data fetch failed.");
+      loadMockData();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadMockData = () => {
+    setUsers(MOCK_USERS);
+    setProjects(MOCK_PROJECTS);
+    setTasks(MOCK_TASKS);
+    setMessages(MOCK_MESSAGES);
+    if (MOCK_PROJECTS.length > 0 && !activeProject) {
+      setActiveProject(MOCK_PROJECTS[0]);
     }
   };
 
@@ -128,20 +157,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchData();
   }, []);
 
+  // --- CRUD ACTIONS ---
+
   const login = async (email: string) => {
-    // OFFLINE MODE / DEMO Fallback
     if (isOffline) {
       const user = users.find((u: User) => u.email.toLowerCase() === email.toLowerCase());
       if (user) {
         setCurrentUser(user);
         localStorage.setItem('collabflow_user', JSON.stringify(user));
       } else {
-          alert("User not found in demo data.");
+        alert("User not found in demo data.");
       }
       return;
     }
 
-    // ONLINE MODE: Call Backend Auth
     try {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
@@ -153,14 +182,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const user = await res.json();
         setCurrentUser(user);
         localStorage.setItem('collabflow_user', JSON.stringify(user));
-        
-        // Refresh data to ensure we have latest tasks/messages
         fetchData();
       } else {
         alert("Login failed: User not found");
       }
     } catch (e) {
-      console.error("Login request failed", e);
       alert("Connection error during login");
     }
   };
@@ -216,13 +242,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Task Management
   const addTask = async (taskData: Omit<Task, 'id'>) => {
     if (isOffline) {
-      const newTask: Task = {
-        ...taskData,
-        id: `task-${Date.now()}`
-      };
+      const newTask: Task = { ...taskData, id: `task-${Date.now()}` };
       setTasks(prev => [...prev, newTask]);
       return newTask;
     }
@@ -238,7 +260,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateTask = async (taskId: string, updates: Partial<Task>) => {
-    // Optimistic Update
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
     
     if (!isOffline) {
@@ -257,7 +278,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // Chat Management
   const sendMessage = async (content: string) => {
     if (!currentUser || !activeProject) return;
     
@@ -268,11 +288,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     if (isOffline) {
-      const newMsg: Message = {
-        id: `msg-${Date.now()}`,
-        ...msgData,
-        timestamp: new Date()
-      };
+      const newMsg: Message = { id: `msg-${Date.now()}`, ...msgData, timestamp: new Date() };
       setMessages(prev => [...prev, newMsg]);
       return;
     }
@@ -286,13 +302,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setMessages(prev => [...prev, savedMsg]);
   };
 
-  // Project Management
   const addProject = async (projectData: Omit<Project, 'id'>) => {
     if (isOffline) {
-      const newProject: Project = {
-        id: `proj-${Date.now()}`,
-        ...projectData
-      };
+      const newProject: Project = { id: `proj-${Date.now()}`, ...projectData };
       setProjects(prev => [...prev, newProject]);
       setActiveProject(newProject);
       return;
@@ -304,7 +316,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       body: JSON.stringify(projectData)
     });
     const newProject = await res.json();
-    
     setProjects(prev => [...prev, newProject]);
     setActiveProject(newProject);
   };
@@ -312,7 +323,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const deleteProject = async (projectId: string) => {
     setProjects(prev => prev.filter(p => p.id !== projectId));
     if (activeProject?.id === projectId) {
-       // switch to another if available or null
        const remaining = projects.filter(p => p.id !== projectId);
        setActiveProject(remaining.length > 0 ? remaining[0] : null);
     }
@@ -323,7 +333,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  // AI Tool Execution
   const executeAIAction = async (toolCall: any): Promise<string> => {
     const name = toolCall.name;
     const args = toolCall.args;
@@ -345,9 +354,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     if (name === 'assignTask') {
-      if (!hasPermission('assign_task')) {
-        return "Permission denied.";
-      }
+      if (!hasPermission('assign_task')) return "Permission denied.";
       const user = users.find(u => u.email === args.userEmail);
       if (user) {
         await updateTask(args.taskId, { assignedTo: user.id });
@@ -361,26 +368,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   return (
     <DataContext.Provider value={{
-      currentUser,
-      users,
-      projects,
-      tasks,
-      messages,
-      activeProject,
-      login,
-      register,
-      logout,
-      setActiveProject,
-      addTask,
-      updateTask,
-      deleteTask,
-      sendMessage,
-      addProject,
-      deleteProject,
-      executeAIAction,
-      hasPermission,
-      isLoading,
-      isOffline
+      currentUser, users, projects, tasks, messages, activeProject,
+      login, register, logout, setActiveProject, addTask, updateTask, deleteTask, 
+      sendMessage, addProject, deleteProject, executeAIAction, hasPermission, 
+      isLoading, isOffline, connectionError, apiUrl: API_URL
     }}>
       {children}
     </DataContext.Provider>
