@@ -110,6 +110,16 @@ app.post('/api/users/register', async (req, res) => {
   }
 });
 
+// TEAMS
+app.get('/api/teams', async (req, res) => {
+  try {
+    const teams = await Team.find();
+    res.json(teams);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // PROJECTS
 app.get('/api/projects', async (req, res) => {
   try {
