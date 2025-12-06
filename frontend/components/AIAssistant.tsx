@@ -83,11 +83,17 @@ export const AIAssistant: React.FC = () => {
 
       {/* Chat Interface */}
       <div 
-        className={`fixed bottom-6 right-6 w-80 sm:w-96 bg-white border border-gray-200 rounded-2xl shadow-2xl flex flex-col transition-all duration-300 z-50 origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-90 opacity-0 pointer-events-none'}`}
-        style={{ maxHeight: 'calc(100vh - 100px)', height: '500px' }}
+        className={`fixed z-50 bg-white sm:border sm:border-gray-200 sm:rounded-2xl shadow-2xl flex flex-col transition-all duration-300 origin-bottom-right
+          ${isOpen 
+            ? 'inset-0 sm:inset-auto sm:bottom-6 sm:right-6 scale-100 opacity-100' 
+            : 'bottom-6 right-6 scale-90 opacity-0 pointer-events-none'
+          }
+          sm:w-96
+        `}
+        style={{ height: isOpen ? (window.innerWidth >= 640 ? '500px' : '100%') : '0px' }}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 rounded-t-2xl backdrop-blur-sm">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 rounded-t-none sm:rounded-t-2xl backdrop-blur-sm shrink-0">
           <div className="flex items-center gap-2">
             <div className="bg-indigo-100 p-1.5 rounded-lg">
                <Bot size={18} className="text-indigo-600" />
@@ -125,7 +131,7 @@ export const AIAssistant: React.FC = () => {
         </div>
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="p-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex gap-2">
+        <form onSubmit={handleSubmit} className="p-3 border-t border-gray-100 bg-gray-50 rounded-b-none sm:rounded-b-2xl flex gap-2 shrink-0 pb-safe sm:pb-3">
           <input
             type="text"
             value={input}
