@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { Task, TaskStatus, User } from '../types';
-import { MoreHorizontal, Plus, Calendar, AlertCircle, Search, Filter, X, Trash2, CheckCircle2 } from 'lucide-react';
+import { MoreHorizontal, Plus, AlertCircle, Search, Filter, X, Trash2, CheckCircle2 } from 'lucide-react';
 
 const StatusColors = {
   [TaskStatus.TODO]: 'bg-slate-100 border-slate-200',
@@ -16,15 +16,23 @@ const PriorityColors = {
 };
 
 export const KanbanBoard: React.FC = () => {
-  const { tasks, activeProject, updateTask, deleteTask, users, hasPermission } = useData();
+  const { tasks, activeProject, updateTask, deleteTask, addTask, users, hasPermission } = useData();
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAssignee, setFilterAssignee] = useState<string>('all');
 
-  // Modal State
+  // Edit Modal State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Create Task Modal State
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTaskStatus, setNewTaskStatus] = useState<TaskStatus>(TaskStatus.TODO);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<'low'|'medium'|'high'>('medium');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
 
   // Filter tasks for current project and apply search/filters
   const projectTasks = useMemo(() => {
@@ -78,6 +86,32 @@ export const KanbanBoard: React.FC = () => {
     }
   };
 
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || !activeProject) return;
+
+    await addTask({
+      title: newTaskTitle,
+      description: newTaskDesc,
+      priority: newTaskPriority,
+      status: newTaskStatus,
+      assignedTo: newTaskAssignee || undefined,
+      projectId: activeProject.id
+    });
+
+    // Reset and close
+    setNewTaskTitle('');
+    setNewTaskDesc('');
+    setNewTaskPriority('medium');
+    setNewTaskAssignee('');
+    setIsCreating(false);
+  };
+
+  const openCreateModal = (status: TaskStatus) => {
+    setNewTaskStatus(status);
+    setIsCreating(true);
+  };
+
   const handleDeleteTask = () => {
     if (selectedTask && window.confirm("Delete this task?")) {
       deleteTask(selectedTask.id);
@@ -86,7 +120,7 @@ export const KanbanBoard: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-6 overflow-hidden">
+    <div className="h-full flex flex-col p-4 sm:p-6 overflow-hidden bg-white sm:bg-transparent">
       {/* Header with Search and Filters */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -94,7 +128,7 @@ export const KanbanBoard: React.FC = () => {
           <p className="text-gray-500 text-sm max-w-md truncate">{activeProject?.description}</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
@@ -102,16 +136,16 @@ export const KanbanBoard: React.FC = () => {
               placeholder="Search tasks..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-full sm:w-48"
+              className="pl-9 pr-4 py-2 bg-gray-50 sm:bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all w-full sm:w-48"
             />
           </div>
           
-          <div className="relative hidden sm:block">
+          <div className="relative block">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+              className="w-full sm:w-auto pl-9 pr-8 py-2 bg-gray-50 sm:bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
             >
               <option value="all">All Members</option>
               {users.map(u => (
@@ -120,7 +154,7 @@ export const KanbanBoard: React.FC = () => {
             </select>
           </div>
 
-          <div className="flex -space-x-2 border-l border-gray-200 pl-3">
+          <div className="flex -space-x-2 border-l border-gray-200 pl-3 overflow-hidden">
              {users.slice(0, 4).map(u => (
                <img key={u.id} src={u.avatar} className="w-8 h-8 rounded-full border-2 border-white" title={u.name} alt={u.name} />
              ))}
@@ -129,15 +163,15 @@ export const KanbanBoard: React.FC = () => {
       </div>
 
       {/* Board Columns */}
-      <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+      <div className="flex-1 flex gap-4 sm:gap-6 overflow-x-auto pb-4 snap-x snap-mandatory px-0.5 scroll-smooth">
         {Object.values(TaskStatus).map((status) => (
           <div 
             key={status}
-            className={`flex-1 min-w-[300px] flex flex-col rounded-xl border ${StatusColors[status]} transition-colors`}
+            className={`snap-center flex-shrink-0 w-[85vw] sm:w-80 flex flex-col rounded-xl border ${StatusColors[status]} transition-colors h-full`}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <div className="p-4 flex items-center justify-between border-b border-gray-200/50">
+            <div className="p-4 flex items-center justify-between border-b border-gray-200/50 sticky top-0 bg-inherit rounded-t-xl z-10">
               <h3 className="font-semibold text-gray-700 capitalize flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${status === 'done' ? 'bg-emerald-500' : status === 'in-progress' ? 'bg-indigo-500' : 'bg-slate-500'}`}></span>
                 {status.replace('-', ' ')}
@@ -145,7 +179,10 @@ export const KanbanBoard: React.FC = () => {
                   {getTasksByStatus(status).length}
                 </span>
               </h3>
-              <button className="text-gray-400 hover:text-gray-700 transition-colors">
+              <button 
+                onClick={() => openCreateModal(status)}
+                className="text-gray-400 hover:text-gray-700 transition-colors p-1 hover:bg-black/5 rounded"
+              >
                 <Plus size={16} />
               </button>
             </div>
@@ -207,7 +244,7 @@ export const KanbanBoard: React.FC = () => {
         ))}
       </div>
 
-      {/* Task Details Modal */}
+      {/* Task Details Modal (Edit) */}
       {selectedTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
@@ -316,6 +353,110 @@ export const KanbanBoard: React.FC = () => {
                   <CheckCircle2 size={16} /> Save Changes
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Task Modal */}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                New Task <span className="text-gray-400 font-normal">in {newTaskStatus.replace('-', ' ')}</span>
+              </h3>
+              <button 
+                onClick={() => setIsCreating(false)}
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-200 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              <form id="createTaskForm" onSubmit={handleCreateTask} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    placeholder="Enter task title"
+                    className="w-full text-lg font-medium text-gray-900 border-b border-gray-200 focus:border-indigo-500 focus:outline-none py-1 bg-transparent"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Status</label>
+                    <select
+                      value={newTaskStatus}
+                      onChange={(e) => setNewTaskStatus(e.target.value as TaskStatus)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                      {Object.values(TaskStatus).map(s => (
+                        <option key={s} value={s}>{s.replace('-', ' ').toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Priority</label>
+                    <select
+                      value={newTaskPriority}
+                      onChange={(e) => setNewTaskPriority(e.target.value as 'low'|'medium'|'high')}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Assignee</label>
+                  <select
+                    value={newTaskAssignee}
+                    onChange={(e) => setNewTaskAssignee(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map(u => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Description</label>
+                  <textarea
+                    value={newTaskDesc}
+                    onChange={(e) => setNewTaskDesc(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-32 resize-none"
+                    placeholder="Add more details..."
+                  />
+                </div>
+              </form>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsCreating(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="createTaskForm"
+                className="px-4 py-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors flex items-center gap-2"
+              >
+                <Plus size={16} /> Create Task
+              </button>
             </div>
           </div>
         </div>
