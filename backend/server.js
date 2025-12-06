@@ -5,13 +5,25 @@ const { User, Project, Task, Message, Team } = require('./models');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+// Updated CORS to allow all origins for debugging
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
+
+// --- ROOT ROUTE (Health Check) ---
+app.get('/', (req, res) => {
+  res.send('✅ CollabFlow API is running successfully!');
+});
 
 // --- API ROUTES ---
 
